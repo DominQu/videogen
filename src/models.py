@@ -223,3 +223,156 @@ class AutoEncoder(nn.Module):
             out = torch.cat((out[0], out[1]), 1)
             x = self.init_psi.inverse(out)
         return x
+
+
+class STConvLSTMCell(nn.Module):
+    """"""
+
+    def __init__(self,
+                 input_size, 
+                 hidden_size, 
+                 memo_size):
+        super().__init__()
+        self.KERNEL_SIZE = 3
+        self.PADDING = self.KERNEL_SIZE // 2
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.memo_size = memo_size
+
+        gates_params = [input_size + hidden_size + hidden_size , hidden_size, self.KERNEL_SIZE]
+        self.in_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
+        self.remember_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
+        self.cell_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
+
+        gates_params = [input_size + memo_size + hidden_size , memo_size, self.KERNEL_SIZE]
+        self.in_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
+        self.remember_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
+        self.cell_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
+
+        self.w1 = nn.Conv3d(hidden_size + memo_size, hidden_size, 1)
+        self.out_gate = nn.Conv3d(
+            input_size + hidden_size + hidden_size + memo_size, hidden_size, self.KERNEL_SIZE, padding=self.PADDING
+            )
+
+    def forward(self, input, prev_state):
+        input_, prev_memo = input
+        batch_size = input_.data.size()[0]
+        spatial_size = input_.data.size()[2:]
+
+        # generate empty prev_state, if None is provided
+        if prev_state is None:
+            state_size = [batch_size, self.hidden_size] + list(spatial_size)
+            prev_state = (
+                torch.zeros(state_size, requires_grad=True).cuda(),
+                torch.zeros(state_size, requires_grad=True).cuda()
+            )
+
+        prev_hidden, prev_cell = prev_state
+
+        # data size is [batch, channel, height, width]
+        stacked_inputs = torch.cat((input_, prev_hidden, prev_cell), 1)
+
+        in_gate = torch.sigmoid(self.in_gate(stacked_inputs))
+        remember_gate = torch.sigmoid(self.remember_gate(stacked_inputs))
+        cell_gate = torch.tanh(self.cell_gate(stacked_inputs))
+
+        cell = (remember_gate * prev_cell) + (in_gate * cell_gate)
+
+        stacked_inputs1 = torch.cat((input_, prev_memo, cell), 1)
+
+        in_gate1 = torch.sigmoid(self.in_gate1(stacked_inputs1))
+        remember_gate1 = torch.sigmoid(self.remember_gate1(stacked_inputs1))
+        cell_gate1 = torch.tanh(self.cell_gate1(stacked_inputs1))
+
+        memo = (remember_gate1 * prev_memo) + (in_gate1 * cell_gate1)
+
+        out_gate = torch.sigmoid(self.out_gate(torch.cat((input_, prev_hidden, cell, memo), 1)))
+        hidden = out_gate * torch.tanh(self.w1(torch.cat((cell, memo), 1)))
+
+        #print(hidden.size())
+        return (hidden, cell),memo
+
+
+class RecurrentReversiblePredictor(nn.Module):
+    """
+    Class implementing recurrent reversible predictor module. 
+    It consists of ST-LSTM and ConvLSTM layers arranged in similar manner to the AutoEncoder module
+    
+    Parameters
+    ----------
+    input_size [int]
+        input data size
+    hidden_size[int]
+        size of the hidden state tensor
+    output_size [int]
+        output data size
+    num_layers [int]
+        number of layers of the module
+    batch_size [int]
+    temp [int]
+    w [int]
+    h [int]"""
+    def __init__(self, 
+                 input_size: int, 
+                 hidden_size: int,
+                 output_size: int,
+                 num_layers: int,
+                 batch_size: int,
+                 temp: int=3, 
+                 w: int=8,
+                 h: int=8):
+        super().__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.num_layers = num_layers
+        self.batch_size = batch_size
+        self.temp = temp
+        self.w = w
+        self.h = h
+
+        self.convlstm = nn.ModuleList(
+            [  
+                STConvLSTMCell(input_size, hidden_size, hidden_size) if i == 0 
+                else STConvLSTMCell(hidden_size, hidden_size, hidden_size) 
+                for i in range(self.num_layers)
+            ]
+        )
+
+        self.attention = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv3d(self.hidden_size, self.hidden_size, 1, 1, 0),
+                    # nn.ReLU(),
+                    # nn.Conv3d(self.hidden_size, self.hidden_size, 3, 1, 1),
+                    nn.Sigmoid()
+                ) 
+                for i in range(self.num_layers)
+            ]
+        )
+
+        self.hidden = self.init_hidden()
+        self.prev_hidden = self.hidden
+
+    def init_hidden(self):
+        hidden = []
+
+        for i in range(self.num_layers):
+            hidden.append((torch.zeros(self.batch_size, self.hidden_size,self.temp,self.w,self.h, requires_grad=True).cuda(),
+                           torch.zeros(self.batch_size, self.hidden_size,self.temp,self.w,self.h, requires_grad=True).cuda()))
+        return hidden
+
+    def forward(self, input):
+        input_, memo = input
+        x1, x2 = input_
+            # self.copy(self.hidden)
+        for i in range(self.num_layers):
+            out = self.convlstm[i]((x1,memo), self.hidden[i])
+            self.hidden[i] = out[0]
+            memo = out[1]
+            g = self.attention[i](self.hidden[i][0])
+            # Weighted sum
+            x2 = (1 - g) * x2 + g * self.hidden[i][0]
+            x1, x2 = x2, x1
+
+        return (x1,x2),memo
