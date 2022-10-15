@@ -377,7 +377,7 @@ class RecurrentReversiblePredictor(nn.Module):
             ]
         )
 
-        self.hidden = self.init_hidden()
+        self.init_hidden()
         self.prev_hidden = self.hidden
 
     def init_hidden(self):
@@ -386,7 +386,11 @@ class RecurrentReversiblePredictor(nn.Module):
         for i in range(self.num_layers):
             hidden.append((torch.zeros(self.batch_size, self.hidden_size, self.temporal, self.width, self.height, requires_grad=True).cuda(),
                            torch.zeros(self.batch_size, self.hidden_size, self.temporal, self.width, self.height, requires_grad=True).cuda()))
-        return hidden
+        self.hidden = hidden
+
+    def get_empty_memory(self):
+        """Return empty tensor for hidden memory"""
+        return torch.zeros((self.batch_size, self.hidden_size, self.temporal, self.width, self.height), requires_grad=True).to(self.device)
 
     def forward(self, input):
         input_, memo = input
