@@ -14,11 +14,11 @@ class CrevNet:
     It uses modules from models.py file.
     Enables model training and inference
     """
-    def __init__(self, config_file: Path, dataset, device: str='cpu'):
+    def __init__(self, config: dict, dataset, device: str='cpu'):
         
         self.dataset = dataset
 
-        self.config = CrevNet.load_params(config_file)
+        self.config = config
 
         # Get training params from config
         self.epochs = self.config["epochs"]
@@ -119,14 +119,3 @@ class CrevNet:
     def load(self, model_path: Path):
         """Load trained model from file"""
         pass
-
-    @staticmethod
-    def load_params(config_file: Path) -> dict:
-        """Load network parameters from json file"""
-        if not config_file.is_file():
-            raise ValueError("Specified config file is not valid")
-
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-        logging.info("Config file loaded succesfully")
-        return config

@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 import random
+import json
 
 import torch
 import numpy as np
@@ -19,6 +20,16 @@ def set_global_seed(seed=777):
     random.seed(seed)
     return np_rng
 
+def load_params(config_file: Path) -> dict:
+        """Load network parameters from json file"""
+        if not config_file.is_file():
+            raise ValueError("Specified config file is not valid")
+
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        logging.info("Config file loaded succesfully")
+        return config
+
 if __name__ == "__main__":
 
     # Seed all modules, numpy random generator is returned to pass to other functions
@@ -26,8 +37,8 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     config = Path("configs/mnist_config.json")
-    params = CrevNet.load_params(config)
+    params = load_params(config)
 
     dataset = MovingMnistDataset(params["batch_size"])
     
-    network = CrevNet(config, dataset, device)
+    network = CrevNet(params, dataset, device)
