@@ -1,5 +1,4 @@
 from pathlib import Path
-from turtle import pos
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -7,7 +6,27 @@ from torchvision.transforms import Compose, ToTensor, Resize
 from torchvision.datasets import MNIST
 
 class MovingMnist(Dataset):
-    """Dataset object responsible for creation of the moving mnist data"""
+    """Dataset object responsible for creation of the moving mnist data
+    
+    Parameters
+    ----------
+    data_path [Path]
+        directory in which dataset will be placed or can be found
+    train [bool]
+        load training data or test data
+    sequence_length [int]
+        length of generated moving mnist sequence
+    image_size [int]
+        size for the moving mnist sequence, output will be a square
+    num_digits [int]
+        number of digits overlapping each other on the moving sequence
+    channels [int]
+        number of channels for the generated sequence
+    starting_size [int]
+        size of the static mnist image loaded from dataset
+    max_move [int]
+        absolute value for maximal movement of the digits, in pixels
+    """
     def __init__(self,
                  data_path: Path, 
                  train: bool, 
@@ -32,15 +51,25 @@ class MovingMnist(Dataset):
         return self.data_len
     
     def __getitem__(self, index):
+        """Magic method responsible for generation of the moving mnist sequence
+        
+        Returns
+        -------
+        data_sequence [torch.tensor]
+            tensor with the generated moving mnist sequence
+        """
 
+        # Empty tensor for the sequence
         data_sequence = torch.zeros(
             (self.sequence_length, self.image_size, self.image_size, self.channels), 
             dtype=torch.float32
             )
+        
         for _ in range(self.num_digits):
             ind = int(torch.randint(self.data_len, (1,)))
             img, _ = self.mnist[ind]
 
+            # Get random position of the number and random movement
             pos = torch.randint(self.image_size - self.starting_size, (2,))
             mov = torch.randint(-self.max_move, self.max_move+1, (2,))
 
@@ -103,12 +132,6 @@ class MovingMnistDataset:
         return batch
 
 if __name__ == "__main__":
-    # mnist = MNIST('data/MNIST', train=False, download=True, transform=Compose([Resize(32), ToTensor()]))
-    # data = DataLoader(mnist)
-    # print(len(data))
-    # for img in data:
-    #     print(img)
-    #     break
 
     mnist = MovingMnist('data/MNIST', True, 20, 64, 2, 3)
     print(mnist[0])
