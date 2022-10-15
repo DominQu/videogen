@@ -1,0 +1,24 @@
+{
+    "epochs": 1,
+    "batch_size": 16,
+    "lr": 0.001,
+    "autoencoder": {
+        "num_blocks": [4, 5, 3],
+        "num_strides": [1, 2, 2],
+        "input_shape": [1, 64, 64],
+        "num_channels": 0,
+        "init_downscale_factor": 2,
+        "dropout_rate": 0.0,
+        "learnable_batch_norm": 1,
+        "hidden_channel_scaling_factor": 2
+    },
+    "recurrent": {
+        "input_size": 32,
+        "hidden_size": 32,
+        "output_size": 32,
+        "num_layers": 8,
+        "temporal": 3,
+        "width": 8,
+        "height": 8
+    }
+}

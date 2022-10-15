@@ -21,7 +21,7 @@ class InvertibleAEBlock(nn.Module):
         stride parameter for neural network layers
     learnable_batch_norm [bool]
         flag passed to nn.BatchNorm3d class, determining if the batch norm has learnable params
-    layer_scaling_factor [int]
+    hidden_channel_scaling_factor [int]
         number by witch the output channel will be divided
     droput_rate [float]
         float specifying the dropout rate
@@ -32,7 +32,7 @@ class InvertibleAEBlock(nn.Module):
                  first_block=False,
                  stride=1,
                  learnable_batch_norm=True,
-                 layer_scaling_factor=2,
+                 hidden_channel_scaling_factor=2,
                  dropout_rate=0.0):
         """
         Initialize invertible block
@@ -46,7 +46,7 @@ class InvertibleAEBlock(nn.Module):
             layers.append(nn.BatchNorm3d(input_channels//2, affine=learnable_batch_norm))
             layers.append(nn.ReLU(inplace=True))
         
-        out = output_channels // layer_scaling_factor
+        out = output_channels // hidden_channel_scaling_factor
         actual_output_channels = out if out > 0 else 1
     
         if self.stride == 2:
@@ -114,7 +114,7 @@ class AutoEncoder(nn.Module):
     num_channels [list]
         list containing number of output channels for every group of blocks, if not given will be assigned
         with values calculated from input channel number
-    init_ds [int]
+    init_downscale_factor [int]
         TBD
     input_shape [list]
         shape of the input data
@@ -122,7 +122,7 @@ class AutoEncoder(nn.Module):
         float specifying the dropout rate
     learnable_batch_norm [bool]
         flag passed to nn.BatchNorm3d class, determining if the batch norm has learnable params
-    layer_scaling_factor [int]
+    hidden_channel_scaling_factor [int]
         number by witch the output channel will be divided
     """
     def __init__(self,
@@ -130,10 +130,10 @@ class AutoEncoder(nn.Module):
                  num_strides: list, 
                  input_shape: list, 
                  num_channels: list=None, 
-                 init_ds: int=2,
+                 init_downscale_factor: int=2,
                  dropout_rate: float=0.0, 
                  learnable_batch_norm: bool=True, 
-                 layer_scaling_factor: int=2
+                 hidden_channel_scaling_factor: int=2
                  ):
         """Initialize AutoEncoder class"""
         super().__init__()
@@ -141,24 +141,24 @@ class AutoEncoder(nn.Module):
         if len(input_shape) < 3:
             raise ValueError("Input data should have at least 3 dimensions")
         
-        self.ds = input_shape[2] // 2**(num_strides.count(2)+init_ds//2)
-        self.init_ds = init_ds
-        self.input_channels = input_shape[0] * 2**self.init_ds
         # Set class parameters
+        self.final_downscale_factor = input_shape[2] // 2**(num_strides.count(2)+init_downscale_factor//2)
+        self.init_downscale_factor = init_downscale_factor
+        self.input_channels = input_shape[0] * 2**self.init_downscale_factor
         self.num_blocks = num_blocks
         self.num_strides = num_strides
         self.num_channels = num_channels
         self.dropout_rate = dropout_rate
-        self.learnable_batch_norm = learnable_batch_norm
-        self.layer_scaling_factor = layer_scaling_factor
+        self.learnable_batch_norm = bool(learnable_batch_norm)
+        self.hidden_channel_scaling_factor = hidden_channel_scaling_factor
 
         if not self.num_channels:
             self.num_channels = [self.input_channels//2, self.input_channels//2 * 4,
                          self.input_channels//2 * 4**2, self.input_channels//2 * 4**3]
 
-        if self.init_ds == 0:
-            raise ValueError("Init_ds value can't be equal to 0")
-        self.init_psi = pixel_shuffle_layer(self.init_ds)
+        if self.init_downscale_factor == 0:
+            raise ValueError("init_downscale_factor value can't be equal to 0")
+        self.init_pixel_shuffle = pixel_shuffle_layer(self.init_downscale_factor)
         self.stack = self.stack_invertible_blocks(InvertibleAEBlock)
 
     def stack_invertible_blocks(self, block_type):
@@ -195,7 +195,7 @@ class AutoEncoder(nn.Module):
                     stride=stride,
                     dropout_rate=self.dropout_rate,
                     learnable_batch_norm=self.learnable_batch_norm,
-                    layer_scaling_factor=self.layer_scaling_factor
+                    hidden_channel_scaling_factor=self.hidden_channel_scaling_factor
                 )
             )
             input_channels = 2 * channel
@@ -208,9 +208,10 @@ class AutoEncoder(nn.Module):
         if encode:
             n = self.input_channels // 2
 
-            if self.init_ds == 0: # this check can break the code
-                print("Init_ds value == 0 but it shouldn't be")
-            x = self.init_psi.forward(input)
+            if self.init_downscale_factor == 0: # this check can break the code
+                print("init_downscale_factor value == 0 but it shouldn't be")
+            x = self.init_pixel_shuffle.forward(input)
+            # Split the data in two parts for the two paths of the AE
             out = (x[:, :n, :, :, :], x[:, n:, :, :, :])
 
             for block in self.stack:
@@ -221,40 +222,61 @@ class AutoEncoder(nn.Module):
             for i in range(len(self.stack)):
                 out = self.stack[-1 - i].inverse(out)
             out = torch.cat((out[0], out[1]), 1)
-            x = self.init_psi.inverse(out)
+            x = self.init_pixel_shuffle.inverse(out)
         return x
 
 
-class STConvLSTMCell(nn.Module):
-    """"""
+class ConvLSTMCell(nn.Module):
+    """This is an implementation of ConvLSTM from this paper https://arxiv.org/abs/1506.04214
+    In this implementation 2d convolutions were switched for 3d convolutions to improve feature
+    extraction along temporal dimension. Also this implementation uses bigger architecture with 
+    doubled gates. 
+
+    Parameters
+    ----------
+    input_size [int]
+    hidden_size [int]
+    memory_size [int]
+    """
 
     def __init__(self,
                  input_size, 
                  hidden_size, 
-                 memo_size):
+                 memory_size):
         super().__init__()
-        self.KERNEL_SIZE = 3
-        self.PADDING = self.KERNEL_SIZE // 2
+        
+        self.KERNEL_SIZE = 3 # universal 3x3 kernel used 
+        self.PADDING = self.KERNEL_SIZE // 2 # padding selected so that output shape remains the same
+
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.memo_size = memo_size
+        self.memory_size = memory_size
 
         gates_params = [input_size + hidden_size + hidden_size , hidden_size, self.KERNEL_SIZE]
         self.in_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
         self.remember_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
         self.cell_gate = nn.Conv3d(*gates_params, padding=self.PADDING)
 
-        gates_params = [input_size + memo_size + hidden_size , memo_size, self.KERNEL_SIZE]
+        gates_params = [input_size + memory_size + hidden_size , memory_size, self.KERNEL_SIZE]
         self.in_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
         self.remember_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
         self.cell_gate1 = nn.Conv3d(*gates_params, padding=self.PADDING)
 
-        self.w1 = nn.Conv3d(hidden_size + memo_size, hidden_size, 1)
+        self.w1 = nn.Conv3d(hidden_size + memory_size, hidden_size, 1)
         self.out_gate = nn.Conv3d(
-            input_size + hidden_size + hidden_size + memo_size, hidden_size, self.KERNEL_SIZE, padding=self.PADDING
+            input_size + hidden_size + hidden_size + memory_size, hidden_size, self.KERNEL_SIZE, padding=self.PADDING
             )
 
     def forward(self, input, prev_state):
+        """Forward pass of the ConvLSTM
+        
+        Parameters
+        ----------
+        input [tuple]
+            tuple which first element is the actual input and the second element is memory output from the previous cell
+        prev_state [torch.tensor]
+            tensor with state output from the previous cell
+        """
         input_, prev_memo = input
         batch_size = input_.data.size()[0]
         spatial_size = input_.data.size()[2:]
@@ -289,8 +311,7 @@ class STConvLSTMCell(nn.Module):
         out_gate = torch.sigmoid(self.out_gate(torch.cat((input_, prev_hidden, cell, memo), 1)))
         hidden = out_gate * torch.tanh(self.w1(torch.cat((cell, memo), 1)))
 
-        #print(hidden.size())
-        return (hidden, cell),memo
+        return (hidden, cell), memo
 
 
 class RecurrentReversiblePredictor(nn.Module):
@@ -309,32 +330,37 @@ class RecurrentReversiblePredictor(nn.Module):
     num_layers [int]
         number of layers of the module
     batch_size [int]
-    temp [int]
-    w [int]
-    h [int]"""
+        batch size used during training
+    temporal [int]
+        temporal dimension of the input data, every input contains some stacked frames
+    width [int]
+        width of the input data
+    height [int]
+        height of the input data
+    """
     def __init__(self, 
                  input_size: int, 
                  hidden_size: int,
                  output_size: int,
                  num_layers: int,
                  batch_size: int,
-                 temp: int=3, 
-                 w: int=8,
-                 h: int=8):
+                 temporal: int=3, 
+                 width: int=8,
+                 height: int=8):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
         self.batch_size = batch_size
-        self.temp = temp
-        self.w = w
-        self.h = h
+        self.temporal = temporal
+        self.width = width
+        self.height = height
 
         self.convlstm = nn.ModuleList(
             [  
-                STConvLSTMCell(input_size, hidden_size, hidden_size) if i == 0 
-                else STConvLSTMCell(hidden_size, hidden_size, hidden_size) 
+                ConvLSTMCell(input_size, hidden_size, hidden_size) if i == 0 
+                else ConvLSTMCell(hidden_size, hidden_size, hidden_size) 
                 for i in range(self.num_layers)
             ]
         )
@@ -358,8 +384,8 @@ class RecurrentReversiblePredictor(nn.Module):
         hidden = []
 
         for i in range(self.num_layers):
-            hidden.append((torch.zeros(self.batch_size, self.hidden_size,self.temp,self.w,self.h, requires_grad=True).cuda(),
-                           torch.zeros(self.batch_size, self.hidden_size,self.temp,self.w,self.h, requires_grad=True).cuda()))
+            hidden.append((torch.zeros(self.batch_size, self.hidden_size, self.temporal, self.width, self.height, requires_grad=True).cuda(),
+                           torch.zeros(self.batch_size, self.hidden_size, self.temporal, self.width, self.height, requires_grad=True).cuda()))
         return hidden
 
     def forward(self, input):
