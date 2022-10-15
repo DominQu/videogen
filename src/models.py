@@ -88,7 +88,7 @@ class InvertibleAEBlock(nn.Module):
         if self.stride == 2:
             x2 = self.pixel_shuffle_layer.inverse(x2)
 
-        Fx2 = - self.bottleneck_block(x2)
+        Fx2 = - self.neural_block(x2)
         x1 = Fx2 + y1
 
         if self.stride == 2:
@@ -344,6 +344,7 @@ class RecurrentReversiblePredictor(nn.Module):
                  output_size: int,
                  num_layers: int,
                  batch_size: int,
+                 device: str,
                  temporal: int=3, 
                  width: int=8,
                  height: int=8):
@@ -353,6 +354,7 @@ class RecurrentReversiblePredictor(nn.Module):
         self.output_size = output_size
         self.num_layers = num_layers
         self.batch_size = batch_size
+        self.device = device
         self.temporal = temporal
         self.width = width
         self.height = height

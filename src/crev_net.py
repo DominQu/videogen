@@ -6,6 +6,7 @@ import pip._vendor.rich.progress as progress
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import wandb
 
 from .models import AutoEncoder, RecurrentReversiblePredictor
 
@@ -16,9 +17,9 @@ class CrevNet:
     """
     def __init__(self, config: dict, dataset, device: str='cpu'):
         
-        self.dataset = dataset
-
         self.config = config
+        self.dataset = dataset
+        self.device = device
 
         # Get training params from config
         self.epochs = self.config["epochs"]
@@ -36,7 +37,7 @@ class CrevNet:
         # Instantiate neural network components and things needed for training
         self.auto_encoder = AutoEncoder(**self.config["autoencoder"])
         self.auto_encoder.to(device)
-        self.recurrent_module = RecurrentReversiblePredictor(**self.config["recurrent"], batch_size=self.config["batch_size"])
+        self.recurrent_module = RecurrentReversiblePredictor(**self.config["recurrent"], batch_size=self.config["batch_size"], device=self.device)
         self.recurrent_module.to(device)
         logging.info(f"Neural network modules intitialized and transfered to device: {device}")
 
@@ -58,11 +59,11 @@ class CrevNet:
         input_sequence = []
         for i in range(sequence_length):
             # Select only the number of channels given in the input shape
-            frame1 = input[i][:, :self.input_shape[0]][:, None, None, :, :]
-            frame2 = input[i+1][:, :self.input_shape[0]][:, None, None, :, :]
-            frame3 = input[i+2][:, :self.input_shape[0]][:, None, None, :, :]
+            frame1 = torch.unsqueeze(input[i][:, :self.input_shape[0]], 2)
+            frame2 = torch.unsqueeze(input[i+1][:, :self.input_shape[0]], 2)
+            frame3 = torch.unsqueeze(input[i+2][:, :self.input_shape[0]], 2)
             # Stack three consecutive frames in temporal dimension
-            input_sequence.append(torch.cat((frame1, frame2, frame3), dim=2))
+            input_sequence.append(torch.cat((frame1, frame2, frame3), dim=2).to(self.device))
 
         return input_sequence
 
@@ -80,7 +81,7 @@ class CrevNet:
             loss for the forward pass through the whole sequence
         """
 
-        self.recurrent_module_optimizer.init_hidden()
+        self.recurrent_module.init_hidden()
 
         loss = 0
         memory = self.recurrent_module.get_empty_memory()
@@ -98,21 +99,25 @@ class CrevNet:
             self.auto_encoder.train()
             self.recurrent_module.train()
 
+            logging.info(f"Starting epoch: {epoch+1}")
+            epoch_loss = 0
             for iter in progress.track(range(self.iterations)):
                 # Zero the gradients for every batch
                 self.ae_optimizer.zero_grad()
                 self.recurrent_module_optimizer.zero_grad()
 
-                input = next(self.dataset.get_train_batch)
-                input_sequence = self.prepare_input_sequence(input)
+                input = next(self.dataset.get_train_batch())
+                input_sequence = self.prepare_input_sequence(input, self.warmup_steps + self.prediction_steps)
 
                 loss = self.forward(input_sequence)
-
+                wandb.log({"loss": loss})
+                epoch_loss += loss.item()
                 loss.backward()
 
                 self.ae_optimizer.step()
                 self.recurrent_module_optimizer.step()
             
+            logging.info(f"Training loss for epoch: {epoch+1} is: {epoch_loss/self.iterations:0.3f}")
             self.lr_ae_scheduler.step()
             self.lr_recurrent_scheduler.step()
 

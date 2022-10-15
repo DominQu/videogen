@@ -6,12 +6,13 @@ import json
 import torch
 import numpy as np
 from numpy.random import default_rng
+import wandb
 
-from src.models import AutoEncoder, RecurrentReversiblePredictor
 from src.crev_net import CrevNet
 from datasets.mnist import MovingMnistDataset
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %I:%M:%S', level=logging.DEBUG)
+wandb.init(project="inzynierka", entity="dominqu")
 
 def set_global_seed(seed=777):
     torch.manual_seed(seed)
@@ -39,6 +40,15 @@ if __name__ == "__main__":
     config = Path("configs/mnist_config.json")
     params = load_params(config)
 
-    dataset = MovingMnistDataset(params["batch_size"])
+    dataset = MovingMnistDataset(
+        batch_size = params["batch_size"], 
+        dataset_path ='data',
+        sequence_length = params["warmup_steps"] + params["prediction_steps"] + 2,
+        image_size = params["autoencoder"]["input_shape"][1],
+        num_digits = params["num_digits"],
+        channels = params["autoencoder"]["input_shape"][0]
+    )
     
     network = CrevNet(params, dataset, device)
+    network.train()
+    

@@ -100,9 +100,22 @@ class MovingMnistDataset:
     Reshaping it to shape required by the CrevNet module and
     stacking frames in temporal dimension
     """
-    def __init__(self, batch_size: int, dataset_path: Path) -> None:
+    def __init__(self, 
+                 batch_size: int, 
+                 dataset_path: Path,
+                 sequence_length: int,
+                 image_size: int, 
+                 num_digits: int, 
+                 channels: int) -> None:
 
-        self.dataset = (MovingMnist(dataset_path, True), MovingMnist(dataset_path, False))
+        self.dataset = (
+            MovingMnist(
+                dataset_path, True, sequence_length, image_size, num_digits, channels
+                ), 
+            MovingMnist(
+                dataset_path, False, sequence_length, image_size, num_digits, channels
+                )
+            )
         self.train_dataloader = DataLoader(self.dataset[0], batch_size, shuffle=True, drop_last=True)
         self.test_dataloader = DataLoader(self.dataset[1], batch_size, shuffle=True, drop_last=True)
 
@@ -127,8 +140,8 @@ class MovingMnistDataset:
         [sequence_len, batch_size, channels, width, height]
         """
         batch = batch.transpose(0, 1)
-        batch = batch.transpose(2, 3)
         batch = batch.transpose(3, 4)
+        batch = batch.transpose(2, 3)
         return batch
 
 if __name__ == "__main__":
