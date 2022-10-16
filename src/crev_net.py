@@ -210,6 +210,10 @@ Training mse loss: {t_loss*10**3:0.3f} [10e-3]. \
 Eval mse loss: {e_loss[0]*10**3:0.3f} [10e-3]. \
 Eval ssim: {e_loss[1]*10**3:0.3f} [10e-3]")
 
+    def save(self):
+        """Save models' weigths"""
+        pass
+
     def load(self, model_path: Path):
         """Load trained model from file"""
         pass
