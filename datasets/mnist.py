@@ -146,5 +146,8 @@ class MovingMnistDataset:
 
 if __name__ == "__main__":
 
-    mnist = MovingMnist('data/MNIST', True, 20, 64, 2, 3)
-    print(mnist[0])
+    mnist = MovingMnist('data', True, 20, 64, 2, 3)
+    x = mnist[0]
+    import matplotlib.pyplot as plt
+    plt.imshow(x[0])
+    plt.show()
