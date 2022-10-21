@@ -4,10 +4,12 @@ import logging
 import pip._vendor.rich.progress as progress 
 import os
 from datetime import datetime
+from PIL import Image
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 import wandb
 from skimage.metrics import structural_similarity as ssim
 import matplotlib.pyplot as plt
@@ -132,7 +134,38 @@ class CrevNet:
 
         return predicted_sequence, eval_loss
 
-    def eval(self):
+    def save_outputs(self, input_sequence, output_sequence, epoch):
+        batch_ind = torch.randint(self.batch_size, (1,)).item()
+        output_dir = self.run_dir / "outputs" 
+        output_img_dir = output_dir / "img"
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(output_img_dir, exist_ok=True)
+        suffix = f"_{epoch}" if epoch >= 0 else ""
+
+        original_seq = []
+        predicted_seq = []
+        # Save every image of the input and predicted sequences
+        for i, batch in enumerate(input_sequence):
+            frame = batch[batch_ind]
+            original_img = frame.squeeze()[2].reshape((64, 64)).cpu().numpy() * 255
+            plt.imshow(original_img.astype(np.int8))
+            plt.savefig("original.jpg")
+            original_img = Image.fromarray(original_img.astype(np.int8), 'L')
+            original_seq.append(original_img)
+            prediction_frame = output_sequence[i][batch_ind, 0, 2, :, :].reshape((64, 64))
+            prediction_img = prediction_frame.cpu().numpy() * 255
+            prediction_img = Image.fromarray(prediction_img.astype(np.int8), 'L')
+            predicted_seq.append(prediction_img)
+            prediction_img.save(output_img_dir / f"pred_epoch{suffix}_seq_{i}.jpg")
+            original_img.save(output_img_dir / f"orig_epoch{suffix}_seq_{i}.jpg")
+
+        # Save gifs with the whole sequence
+        original_seq[0].save(self.run_dir / "outputs" / f"orig_epoch{suffix}.gif", format="GIF",
+            append_images=original_seq, save_all=True, duration=150, loop=0)
+        predicted_seq[0].save(self.run_dir / "outputs" / f"pred_epoch{suffix}.gif", format="GIF",
+            append_images=predicted_seq, save_all=True, duration=150, loop=0)
+
+    def eval(self, epoch=-1):
         # Epoch evaluation
         self.auto_encoder.train(False)
         self.recurrent_module.train(False)
@@ -149,7 +182,8 @@ class CrevNet:
                 epoch_eval_mse_loss += eval_loss[0]
                 epoch_eval_ssim_loss += eval_loss[1]
                 wandb.log({"eval_mse_loss": eval_loss[0], "eval_ssim": eval_loss[1]})
-
+                if eval_iter == 0:
+                    self.save_outputs(input_sequence, predicted_sequence, epoch)
 
         return epoch_eval_mse_loss/self.eval_iterations, epoch_eval_ssim_loss/self.eval_iterations
 
@@ -207,7 +241,7 @@ class CrevNet:
                 self.lr_ae_scheduler.step()
                 self.lr_recurrent_scheduler.step()
 
-                e_loss = self.eval()
+                e_loss = self.eval(epoch)
                 t_loss = epoch_loss/self.iterations
                 wandb.log({"epoch_eval_mse_loss": e_loss[0], "epoch_eval_ssim": e_loss[1], "epoch_train_mse_loss": t_loss})
 
