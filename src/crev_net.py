@@ -2,6 +2,7 @@ from calendar import c
 from pathlib import Path
 import logging
 import pip._vendor.rich.progress as progress 
+import os
 
 import torch
 import torch.nn as nn
@@ -37,7 +38,7 @@ class CrevNet:
         
         self.config = config
         self.dataset = dataset
-        self.device = device
+        self.device = torch.device(device)
 
         # Get training params from config
         self.epochs = self.config["epochs"]
@@ -55,9 +56,9 @@ class CrevNet:
 
         # Instantiate neural network components and things needed for training
         self.auto_encoder = AutoEncoder(**self.config["autoencoder"])
-        self.auto_encoder.to(device)
+        self.auto_encoder.to(self.device)
         self.recurrent_module = RecurrentReversiblePredictor(**self.config["recurrent"], batch_size=self.config["batch_size"], device=self.device)
-        self.recurrent_module.to(device)
+        self.recurrent_module.to(self.device)
         logging.info(f"Neural network modules intitialized and transfered to device: {device}")
 
         self.ae_optimizer = optim.Adam(self.auto_encoder.parameters(), lr=self.lr)
@@ -210,10 +211,35 @@ Training mse loss: {t_loss*10**3:0.3f} [10e-3]. \
 Eval mse loss: {e_loss[0]*10**3:0.3f} [10e-3]. \
 Eval ssim: {e_loss[1]*10**3:0.3f} [10e-3]")
 
-    def save(self):
+    def save(self, path: Path, **kwargs):
         """Save models' weigths"""
-        pass
+        state_dict= {
+            "ae_state_dict": self.auto_encoder.state_dict(),
+            "ae_optim_state_dict": self.ae_optimizer.state_dict(),
+            "recurrent_state_dict": self.recurrent_module.state_dict(),
+            "recurrent_optim_state_dict": self.recurrent_module_optimizer.state_dict(),
+            **kwargs
+        }
+        path = Path(path)
+        if not path.parent.exists():
+            os.makedirs(path.parent)
 
-    def load(self, model_path: Path):
+        torch.save(state_dict, path)
+        logging.info("Models saved succesfully")
+
+    def load(self, path: Path):
         """Load trained model from file"""
-        pass
+        path = Path(path)
+
+        if not path.exists():
+            raise ValueError(f"Given path: {path} doesn't exist")
+        state_dict = torch.load(path, map_location=self.device)
+        self.auto_encoder.load_state_dict(state_dict["ae_state_dict"])
+        self.ae_optimizer.load_state_dict(state_dict["ae_optim_state_dict"])
+        self.recurrent_module.load_state_dict(state_dict["recurrent_state_dict"])
+        self.recurrent_module_optimizer.load_state_dict(state_dict["recurrent_optim_state_dict"])
+
+        self.auto_encoder.to(self.device)
+        self.recurrent_module.to(self.device)
+
+        logging.info("Models loaded succesfully")
