@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 import pip._vendor.rich.progress as progress 
 import os
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -39,9 +40,13 @@ class CrevNet:
         self.config = config
         self.dataset = dataset
         self.device = torch.device(device)
+        time = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+        self.run_dir = Path(f"models/run_{time}")
+        wandb.config.update(self.config)
 
         # Get training params from config
         self.epochs = self.config["epochs"]
+        self.save_every = self.config["save_every"]
         self.batch_size = self.config["batch_size"]
         self.lr = self.config["lr"]
         self.warmup_steps = self.config["warmup_steps"]
@@ -176,40 +181,51 @@ class CrevNet:
 
     def train(self):
         """Train the network"""
-        for epoch in range(self.epochs):
-            self.auto_encoder.train()
-            self.recurrent_module.train()
+        try:
+            for epoch in range(self.epochs):
+                self.auto_encoder.train()
+                self.recurrent_module.train()
 
-            logging.info(f"Starting epoch: {epoch+1}")
-            epoch_loss = 0
-            for iter in progress.track(range(self.iterations)):
-                # Zero the gradients for every batch
-                self.ae_optimizer.zero_grad()
-                self.recurrent_module_optimizer.zero_grad()
+                logging.info(f"Starting epoch: {epoch+1}")
+                epoch_loss = 0
+                for iter in progress.track(range(self.iterations)):
+                    # Zero the gradients for every batch
+                    self.ae_optimizer.zero_grad()
+                    self.recurrent_module_optimizer.zero_grad()
 
-                input = next(self.dataset.get_train_batch())
-                input_sequence = self.prepare_input_sequence(input, self.warmup_steps + self.prediction_steps)
+                    input = next(self.dataset.get_train_batch())
+                    input_sequence = self.prepare_input_sequence(input, self.warmup_steps + self.prediction_steps)
 
-                loss = self.forward(input_sequence)
-                wandb.log({"training_mse_loss": loss})
-                epoch_loss += loss.item()
-                loss.backward()
+                    loss = self.forward(input_sequence)
+                    wandb.log({"training_mse_loss": loss})
+                    epoch_loss += loss.item()
+                    loss.backward()
 
-                self.ae_optimizer.step()
-                self.recurrent_module_optimizer.step()
-            
-            self.lr_ae_scheduler.step()
-            self.lr_recurrent_scheduler.step()
+                    self.ae_optimizer.step()
+                    self.recurrent_module_optimizer.step()
+                
+                self.lr_ae_scheduler.step()
+                self.lr_recurrent_scheduler.step()
 
-            e_loss = self.eval()
-            t_loss = epoch_loss/self.iterations
-            wandb.log({"epoch_eval_mse_loss": e_loss[0], "epoch_eval_ssim": e_loss[1], "epoch_train_mse_loss": t_loss})
+                e_loss = self.eval()
+                t_loss = epoch_loss/self.iterations
+                wandb.log({"epoch_eval_mse_loss": e_loss[0], "epoch_eval_ssim": e_loss[1], "epoch_train_mse_loss": t_loss})
 
-            logging.info(
-f"Finished epoch: {epoch+1}. \
-Training mse loss: {t_loss*10**3:0.3f} [10e-3]. \
-Eval mse loss: {e_loss[0]*10**3:0.3f} [10e-3]. \
-Eval ssim: {e_loss[1]*10**3:0.3f} [10e-3]")
+                logging.info(
+    f"Finished epoch: {epoch+1}. \
+    Training mse loss: {t_loss*10**3:0.3f} [10e-3]. \
+    Eval mse loss: {e_loss[0]*10**3:0.3f} [10e-3]. \
+    Eval ssim: {e_loss[1]*10**3:0.3f} [10e-3]")
+
+                if epoch % self.save_every == 0:
+                    time = datetime.now().strftime("%H_%M_%S")
+                    self.save(self.run_dir / f"checkpoint_epoch_{epoch}_{time}.tar")
+        except KeyboardInterrupt:
+            time = datetime.now().strftime("%H_%M_%S")
+            self.save(self.run_dir / f"interrupted_epoch_{epoch}_{time}.tar")
+        finally:
+            time = datetime.now().strftime("%H_%M_%S")
+            self.save(self.run_dir / f"final_epoch_{epoch}_{time}.tar")
 
     def save(self, path: Path, **kwargs):
         """Save models' weigths"""
@@ -225,6 +241,7 @@ Eval ssim: {e_loss[1]*10**3:0.3f} [10e-3]")
             os.makedirs(path.parent)
 
         torch.save(state_dict, path)
+        wandb.save(str(self.run_dir / "*"))
         logging.info("Models saved succesfully")
 
     def load(self, path: Path):

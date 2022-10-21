@@ -12,7 +12,7 @@ from src.crev_net import CrevNet
 from datasets.mnist import MovingMnistDataset
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %I:%M:%S', level=logging.INFO)
-wandb.init(project="inzynierka", entity="dominqu", mode='disabled')
+wandb.init(project="inzynierka", entity="dominqu", mode='online')
 
 def set_global_seed(seed=777):
     torch.manual_seed(seed)
@@ -34,7 +34,7 @@ def load_params(config_file: Path) -> dict:
 if __name__ == "__main__":
 
     # Seed all modules, numpy random generator is returned to pass to other functions
-    np_rng = set_global_seed()
+    # np_rng = set_global_seed()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     config = Path("configs/mnist_config.json")
@@ -50,6 +50,6 @@ if __name__ == "__main__":
     )
     
     network = CrevNet(params, dataset, device)
-    # network.train()
-    network.load("models/test.tar")
+    network.train()
+    network.save("models/test.tar")
     

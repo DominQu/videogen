@@ -1,0 +1,5 @@
+pip==22.1.2
+torch==1.12
+wandb
+scikit-image
+$Env:PATH += ";C:\Users\Franek\miniconda3\condabin"
