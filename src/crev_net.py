@@ -243,7 +243,10 @@ class CrevNet:
 
                 e_loss = self.eval(epoch)
                 t_loss = epoch_loss/self.iterations
-                wandb.log({"epoch_eval_mse_loss": e_loss[0], "epoch_eval_ssim": e_loss[1], "epoch_train_mse_loss": t_loss})
+                wandb.log({"epoch": epoch, 
+                           "epoch_eval_mse_loss": e_loss[0], 
+                           "epoch_eval_ssim": e_loss[1], 
+                           "epoch_train_mse_loss": t_loss})
 
                 logging.info(
     f"Finished epoch: {epoch+1}. \
