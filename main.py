@@ -50,6 +50,6 @@ if __name__ == "__main__":
     )
     
     network = CrevNet(params, dataset, device)
+    network.load("models/run_22_10_2022_09_52_57/checkpoint_epoch_0_11_45_30.tar")
     network.train()
-    # network.load("models/final_epoch_19_18_18_49.tar")
     # network.eval()

@@ -165,6 +165,8 @@ class CrevNet:
         predicted_seq[0].save(self.run_dir / "outputs" / f"pred_epoch{suffix}.gif", format="GIF",
             append_images=predicted_seq, save_all=True, duration=150, loop=0)
 
+        wandb.save(str(self.run_dir / "outputs" / "*"))
+
     def eval(self, epoch=-1):
         # Epoch evaluation
         self.auto_encoder.train(False)
