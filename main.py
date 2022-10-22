@@ -12,7 +12,7 @@ from src.crev_net import CrevNet
 from datasets.mnist import MovingMnistDataset
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %I:%M:%S', level=logging.INFO)
-wandb.init(project="inzynierka", entity="dominqu", mode='disabled')
+wandb.init(project="inzynierka", entity="dominqu", mode='online')
 
 def set_global_seed(seed=777):
     torch.manual_seed(seed)
@@ -50,6 +50,6 @@ if __name__ == "__main__":
     )
     
     network = CrevNet(params, dataset, device)
-    # network.train()
-    network.load("models/final_epoch_19_18_18_49.tar")
-    network.eval()
+    network.train()
+    # network.load("models/final_epoch_19_18_18_49.tar")
+    # network.eval()
