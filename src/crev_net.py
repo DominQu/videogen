@@ -260,8 +260,9 @@ class CrevNet:
                     time = datetime.now().strftime("%H_%M_%S")
                     self.save(self.run_dir / f"checkpoint_epoch_{epoch}_{time}.tar")
         except KeyboardInterrupt:
-            time = datetime.now().strftime("%H_%M_%S")
-            self.save(self.run_dir / f"interrupted_epoch_{epoch}_{time}.tar")
+            pass
+            # time = datetime.now().strftime("%H_%M_%S")
+            # self.save(self.run_dir / f"interrupted_epoch_{epoch}_{time}.tar")
         finally:
             time = datetime.now().strftime("%H_%M_%S")
             self.save(self.run_dir / f"final_epoch_{epoch}_{time}.tar")

@@ -371,8 +371,8 @@ class RecurrentReversiblePredictor(nn.Module):
             [
                 nn.Sequential(
                     nn.Conv3d(self.hidden_size, self.hidden_size, 1, 1, 0),
-                    # nn.ReLU(),
-                    # nn.Conv3d(self.hidden_size, self.hidden_size, 3, 1, 1),
+                    nn.ReLU(),
+                    nn.Conv3d(self.hidden_size, self.hidden_size, 3, 1, 1),
                     nn.Sigmoid()
                 ) 
                 for i in range(self.num_layers)

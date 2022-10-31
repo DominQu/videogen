@@ -34,7 +34,7 @@ def load_params(config_file: Path) -> dict:
 if __name__ == "__main__":
 
     # Seed all modules, numpy random generator is returned to pass to other functions
-    # np_rng = set_global_seed()
+    np_rng = set_global_seed()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     config = Path("configs/mnist_config.json")
@@ -50,6 +50,6 @@ if __name__ == "__main__":
     )
     
     network = CrevNet(params, dataset, device)
-    network.load("models/run_22_10_2022_09_52_57/checkpoint_epoch_0_11_45_30.tar")
+    # network.load("models/run_27_10_2022_09_24_26/final_epoch_59_10_45_06.tar")
     network.train()
     # network.eval()
