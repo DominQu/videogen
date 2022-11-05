@@ -13,7 +13,7 @@ from datasets.mnist import MovingMnistDataset
 from datasets.pennaction import PennActionDataset
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %I:%M:%S', level=logging.INFO)
-wandb.init(project="inzynierka", entity="dominqu", mode='disabled')
+wandb.init(project="inzynierka", entity="dominqu", mode='online')
 
 def set_global_seed(seed=777):
     torch.manual_seed(seed)
