@@ -15,6 +15,7 @@ from skimage.metrics import structural_similarity as ssim
 import matplotlib.pyplot as plt
 
 from .models import AutoEncoder, RecurrentReversiblePredictor
+from .models_utils import normalize_image
 
 def calculate_ssim(prediction, target):
     """Calculate structural similarity index"""
@@ -148,13 +149,16 @@ class CrevNet:
         for i, batch in enumerate(input_sequence):
             frame = batch[batch_ind]
             original_img = frame.squeeze()[2].reshape((64, 64)).cpu().numpy() * 255
-            plt.imshow(original_img.astype(np.int8))
-            plt.savefig("original.jpg")
-            original_img = Image.fromarray(original_img.astype(np.int8), 'L')
+            # plt.imshow(original_img.astype(np.uint8))
+            # plt.savefig("original.jpg")
+            original_img = Image.fromarray(original_img.astype(np.uint8), 'L')
             original_seq.append(original_img)
             prediction_frame = output_sequence[i][batch_ind, 0, 2, :, :].reshape((64, 64))
-            prediction_img = prediction_frame.cpu().numpy() * 255
-            prediction_img = Image.fromarray(prediction_img.astype(np.int8), 'L')
+            # Add predicted image normalization
+            prediction_img = normalize_image(prediction_frame.cpu().numpy(), high=255, low=0)
+            # plt.imshow(prediction_img.astype(np.uint8))
+            # plt.savefig("prediction.jpg")
+            prediction_img = Image.fromarray(prediction_img.astype(np.uint8), 'L')
             predicted_seq.append(prediction_img)
             prediction_img.save(output_img_dir / f"pred_epoch{suffix}_seq_{i}.jpg")
             original_img.save(output_img_dir / f"orig_epoch{suffix}_seq_{i}.jpg")
