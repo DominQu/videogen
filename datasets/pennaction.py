@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import numpy as np
 from numpy.random import default_rng
-import cv2
+# import cv2
 
 class PennAction(Dataset):
 
