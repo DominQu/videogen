@@ -1,7 +1,8 @@
 import torch
 from torch import nn
+import numpy as np
 
-class pixel_shuffle_layer(nn.Module):
+class PixelShuffleLayer(nn.Module):
     """
     Class implementing invertible pixel shuffle layer.
     Based on paper https://arxiv.org/pdf/1609.05158.pdf
@@ -46,3 +47,10 @@ class pixel_shuffle_layer(nn.Module):
         output = output.contiguous().view(batch_size, temp, s_height, s_width, s_depth)
         output = output.permute(0, 4, 1, 2, 3)
         return output.contiguous()
+
+def normalize_image(image: np.ndarray, high=255, low=0) -> np.ndarray:
+    """Normalize input image to be in range <low, high>"""
+    img_min = image.min()
+    img_max = image.max()
+
+    return (image - img_min) * ((high - low) / (img_max - img_min)) + low

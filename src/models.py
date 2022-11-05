@@ -1,4 +1,4 @@
-from .models_utils import pixel_shuffle_layer
+from .models_utils import PixelShuffleLayer
 
 import torch
 from torch import nn
@@ -39,7 +39,7 @@ class InvertibleAEBlock(nn.Module):
         """
         super().__init__()
         self.stride = stride
-        self.pixel_shuffle_layer = pixel_shuffle_layer(stride)
+        self.pixel_shuffle_layer = PixelShuffleLayer(stride)
         layers = []
 
         if not first_block:
@@ -158,7 +158,7 @@ class AutoEncoder(nn.Module):
 
         if self.init_downscale_factor == 0:
             raise ValueError("init_downscale_factor value can't be equal to 0")
-        self.init_pixel_shuffle = pixel_shuffle_layer(self.init_downscale_factor)
+        self.init_pixel_shuffle = PixelShuffleLayer(self.init_downscale_factor)
         self.stack = self.stack_invertible_blocks(InvertibleAEBlock)
 
     def stack_invertible_blocks(self, block_type):
