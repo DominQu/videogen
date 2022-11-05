@@ -62,6 +62,8 @@ class PennAction(Dataset):
         
         if len(frames) < self.sequence_length:
             logging.error("Sequence length is higher than number of frames")
+            len_dif = self.sequence_length - len(frames)
+            frames = frames + frames[:len_dif]
         
         sequence = torch.zeros((self.sequence_length, 3, self.img_size, self.img_size))
 
