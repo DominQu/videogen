@@ -10,8 +10,8 @@
     "prediction_steps": 10,
     "iterations": 10,
     "autoencoder": {
-        "num_blocks": [1, 1, 1],
-        "num_strides": [1, 2, 2],
+        "num_blocks": [4, 5, 4, 3],
+        "num_strides": [1, 2, 2, 2],
         "input_shape": [3, 128, 128],
         "num_channels": 0,
         "init_downscale_factor": 2,
@@ -20,12 +20,12 @@
         "hidden_channel_scaling_factor": 2
     },
     "recurrent": {
-        "input_size": 96,
-        "hidden_size": 96,
-        "output_size": 96,
-        "num_layers": 4,
+        "input_size": 384,
+        "hidden_size": 384,
+        "output_size": 384,
+        "num_layers": 16,
         "temporal": 3,
-        "width": 16,
-        "height": 16
+        "width": 8,
+        "height": 8
     }
 }

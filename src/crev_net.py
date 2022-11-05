@@ -148,7 +148,7 @@ class CrevNet:
         predicted_seq = []
         # Save every image of the input and predicted sequences
         for i, batch in enumerate(input_sequence):
-            frame = batch[batch_ind].squeeze()[2]
+            frame = batch[batch_ind].transpose(0, 1)[2]
             if frame.shape[0] == 1:
                 original_img = frame.reshape((self.input_shape[1], self.input_shape[2])).cpu().numpy() * 255
                 prediction_frame = output_sequence[i][batch_ind, 0, 2, :, :].reshape((self.input_shape[1], self.input_shape[2]))
