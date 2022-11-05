@@ -25,7 +25,8 @@ def calculate_ssim(prediction, target):
                         img_target.squeeze()[2],
                         gaussian_weights=True, 
                         sigma=1.5, 
-                        use_sample_covariance=False)
+                        use_sample_covariance=False,
+                        channel_axis=0)
         batch_ssim.append(ssim_val)
         # plt.imshow(img_pred.squeeze()[2].reshape((64, 64, 1)))
         # plt.savefig("pred.png")
@@ -147,18 +148,26 @@ class CrevNet:
         predicted_seq = []
         # Save every image of the input and predicted sequences
         for i, batch in enumerate(input_sequence):
-            frame = batch[batch_ind]
-            original_img = frame.squeeze()[2].reshape((64, 64)).cpu().numpy() * 255
-            # plt.imshow(original_img.astype(np.uint8))
-            # plt.savefig("original.jpg")
-            original_img = Image.fromarray(original_img.astype(np.uint8), 'L')
+            frame = batch[batch_ind].squeeze()[2]
+            if frame.shape[0] == 1:
+                original_img = frame.reshape((self.input_shape[1], self.input_shape[2])).cpu().numpy() * 255
+                prediction_frame = output_sequence[i][batch_ind, 0, 2, :, :].reshape((self.input_shape[1], self.input_shape[2]))
+            else:
+                original_img = frame.moveaxis(0, 2).cpu().numpy()
+                original_img = normalize_image(original_img, high=255, low=0)
+                prediction_frame = output_sequence[i][batch_ind, :, 2, :, :].moveaxis(0, 2)
+
+            plt.imshow(original_img.astype(np.uint8))
+            plt.savefig("original.jpg")
+            mode = 'L' if len(original_img.shape) == 2 else 'RGB'
+            original_img = Image.fromarray(original_img.astype(np.uint8), mode)
             original_seq.append(original_img)
-            prediction_frame = output_sequence[i][batch_ind, 0, 2, :, :].reshape((64, 64))
+            
             # Add predicted image normalization
             prediction_img = normalize_image(prediction_frame.cpu().numpy(), high=255, low=0)
-            # plt.imshow(prediction_img.astype(np.uint8))
-            # plt.savefig("prediction.jpg")
-            prediction_img = Image.fromarray(prediction_img.astype(np.uint8), 'L')
+            plt.imshow(prediction_img.astype(np.uint8))
+            plt.savefig("prediction.jpg")
+            prediction_img = Image.fromarray(prediction_img.astype(np.uint8), mode)
             predicted_seq.append(prediction_img)
             prediction_img.save(output_img_dir / f"pred_epoch{suffix}_seq_{i}.jpg")
             original_img.save(output_img_dir / f"orig_epoch{suffix}_seq_{i}.jpg")
