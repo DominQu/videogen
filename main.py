@@ -43,11 +43,11 @@ def train_penn_action(np_rng):
         np_rng=np_rng,
         img_size = params["autoencoder"]["input_shape"][1],
     )
-    
+    print(dataset.get_size())
     network = CrevNet(params, dataset, device)
-    # network.load("models/run_03_11_2022_00_17_52/final_epoch_29_13_09_00.tar")
+    network.load("models/pennaction1/checkpoint_epoch_2_21_49_07.tar")
     network.train()
-    network.eval()
+    # network.eval()
 
 def train_mmnist():
     config = Path("configs/mnist_config.json")

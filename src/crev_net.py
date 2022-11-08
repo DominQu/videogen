@@ -57,10 +57,11 @@ class CrevNet:
         self.prediction_steps = self.config["prediction_steps"]
         try:
             self.iterations = self.config["iterations"]
+            self.eval_iterations = int(0.2 * self.iterations)
         except KeyError:
             # If number of iterations wasn't given in json than iterate over whole dataset
-            self.iterations = self.dataset.get_size()
-        self.eval_iterations = int(0.2 * self.iterations)
+            self.iterations = self.dataset.get_size()[0]
+            self.eval_iterations = self.dataset.get_size()[1]
         self.input_shape = self.config["autoencoder"]["input_shape"]
 
         # Instantiate neural network components and things needed for training

@@ -8,7 +8,6 @@
     "lr_gamma": 0.2,
     "warmup_steps": 8,
     "prediction_steps": 10,
-    "iterations": 1000,
     "autoencoder": {
         "num_blocks": [4, 5, 3],
         "num_strides": [1, 2, 2],

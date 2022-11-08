@@ -93,6 +93,13 @@ class PennActionDataset:
             )
         self.train_dataloader = DataLoader(self.dataset[0], batch_size, shuffle=True, drop_last=True)
         self.test_dataloader = DataLoader(self.dataset[1], batch_size, shuffle=True, drop_last=True)
+        self.batch_size = batch_size
+
+    def get_size(self):
+        train_size = len(self.dataset[0]) // self.batch_size
+        test_size = len(self.dataset[1]) // self.batch_size
+
+        return train_size, test_size
 
     def get_test_batch(self):
         for batch in self.test_dataloader:
