@@ -1,5 +1,6 @@
 pip==22.1.2
-torch==1.12
-wandb
-scikit-image
-$Env:PATH += ";C:\Users\Franek\miniconda3\condabin"
+wandb==0.12.11
+scikit-image==0.19.2
+pillow==9.2.0
+matplotlib==3.5.0
+numpy==1.23.3
