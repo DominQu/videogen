@@ -3,4 +3,10 @@ data
 wandb
 models
 *png
+<<<<<<< HEAD
 *jpg
+=======
+*jpg
+samples
+*.txt
+>>>>>>> 13c617e (Update gitignore)
