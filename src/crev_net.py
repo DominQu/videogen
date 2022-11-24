@@ -281,6 +281,23 @@ class CrevNet:
             time = datetime.now().strftime("%H_%M_%S")
             self.save(self.run_dir / f"final_epoch_{epoch}_{time}.tar")
 
+    def test_forward(self, input_sequence):
+        """Pass one sequence through the model"""
+        self.auto_encoder.train(False)
+        self.recurrent_module.train(False)
+
+        with torch.no_grad():
+            input_sequence = torch.unsqueeze(torch.stack(input_sequence, dim=0), 1)
+            if input_sequence.dim() == 4:
+                input_sequence = torch.unsqueeze(input_sequence, 2)
+            # input_sequence = input_sequence.transpose(4, 3).transpose(3, 2)
+            input_sequence = self.prepare_input_sequence(input_sequence, self.warmup_steps + self.prediction_steps)
+
+            predicted_sequence, _ = self.eval_forward(input_sequence)
+            self.save_outputs(input_sequence, predicted_sequence, -1)
+
+            return predicted_sequence
+
     def save(self, path: Path, **kwargs):
         """Save models' weigths"""
         state_dict= {
