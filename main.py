@@ -6,7 +6,7 @@ import numpy as np
 import wandb
 
 from src.crev_net import CrevNet
-from src.utils import load_params, set_global_seed
+from src.utils import load_params, load_sequence, set_global_seed
 from datasets.mnist import MovingMnistDataset
 from datasets.pennaction import PennActionDataset
 
@@ -43,6 +43,25 @@ def test_penn_action(np_rng, device):
     network = CrevNet(params, dataset, device)
     network.load("samples/penn_action_model.tar")
     network.eval()
+
+def test_real_data(np_rng, device):
+    config = Path("configs/pennaction_config_custom_data.json")
+    params = load_params(config)
+
+    dataset = PennActionDataset(
+        batch_size = params["batch_size"], 
+        dataset_path ='data/Penn_Action',
+        sequence_length = params["warmup_steps"] + params["prediction_steps"] + 2,
+        np_rng=np_rng,
+        img_size = params["autoencoder"]["input_shape"][1],
+    )
+
+    network = CrevNet(params, dataset, device)
+    network.load("samples/penn_action_model.tar")
+
+    frames_dir = Path("bottle_frames_5fps")
+    input_sequence = load_sequence(frames_dir)
+    network.test_forward(input_sequence)
 
 def train_mmnist(device):
     config = Path("configs/mnist_config.json")
@@ -84,6 +103,9 @@ if __name__ == "__main__":
     np_rng = set_global_seed(777)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    test_mmnist(device)
+    # test_mmnist(device)
     # train_mmnist(device)
+    test_real_data(np_rng, device)
+
+    # ffmpeg -i bottle.mp4 -vf fps=5 ./bottle_frames_5fps/frame%06d.png
     
