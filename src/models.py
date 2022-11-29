@@ -115,7 +115,7 @@ class AutoEncoder(nn.Module):
         list containing number of output channels for every group of blocks, if not given will be assigned
         with values calculated from input channel number
     init_downscale_factor [int]
-        TBD
+        starting downscale factor
     input_shape [list]
         shape of the input data
     droput_rate [float]
