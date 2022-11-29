@@ -44,7 +44,7 @@ def test_penn_action(np_rng, device):
     network.load("samples/penn_action_model.tar")
     network.eval()
 
-def test_real_data(np_rng, device):
+def test_real_data(frames_dir, np_rng, device):
     config = Path("configs/pennaction_config_custom_data.json")
     params = load_params(config)
 
@@ -59,7 +59,7 @@ def test_real_data(np_rng, device):
     network = CrevNet(params, dataset, device)
     network.load("samples/penn_action_model.tar")
 
-    frames_dir = Path("bottle_frames_5fps")
+    frames_dir = Path(frames_dir)
     input_sequence = load_sequence(frames_dir)
     network.test_forward(input_sequence)
 
@@ -104,8 +104,6 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # test_mmnist(device)
-    # train_mmnist(device)
-    test_real_data(np_rng, device)
-
-    # ffmpeg -i bottle.mp4 -vf fps=5 ./bottle_frames_5fps/frame%06d.png
+    train_mmnist(device)
+    # test_real_data("wpisz_sciezke_do_danych", np_rng, device)
     

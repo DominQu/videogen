@@ -40,8 +40,8 @@ def gen_img(folder, origin, pred):
     full_img.save(f"seq_{pred}.png")
 
 def gen_penn_img(folder, origin, pred):
-    original = list(folder.glob(f"{origin}*"))
-    predicted = list(folder.glob(f"{pred}*"))
+    original = list(folder.glob(f"orig*"))
+    predicted = list(folder.glob(f"pred*"))
     img_array = 255 * np.ones((3*64+2, 10*64, 3), dtype=np.uint8)
     images = [original[:10], original[10:], predicted[10:]]
     for j in range(3):
@@ -62,7 +62,7 @@ def gen_penn_img(folder, origin, pred):
     full_img.save(f"seq_{pred}.png")
 
 if __name__ == "__main__":
-    dirp = Path("models/run_19_11_2022_19_02_02/outputs/img")
+    dirp = Path("models/run_28_11_2022_22_39_17/outputs/img")
     img_prefix = "orig_epoch_2"
-    num = "seq"
-    gen_penn_img(dirp, f"orig_epoch_{num}", f"pred_epoch_{num}")
+    num = "cars"
+    gen_penn_img(dirp, f"orig_{num}", f"pred_{num}")
