@@ -103,7 +103,7 @@ if __name__ == "__main__":
     np_rng = set_global_seed(777)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # test_mmnist(device)
-    train_mmnist(device)
+    test_mmnist(device)
+    # train_mmnist(device)
     # test_real_data("wpisz_sciezke_do_danych", np_rng, device)
     
