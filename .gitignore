@@ -4,3 +4,6 @@ wandb
 models
 *png
 *jpg
+samples
+*.txt
+custom_videos
